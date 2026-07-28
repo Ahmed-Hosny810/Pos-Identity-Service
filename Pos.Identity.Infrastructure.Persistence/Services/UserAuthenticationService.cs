@@ -1,0 +1,302 @@
+﻿using Pos.Identity.Application.Exceptions;
+using Pos.Identity.Application.Interfaces.Services;
+using Pos.Identity.Application.Wrappers;
+using Azure.Core;
+using Pos.Identity.Domain.Constants;
+using Pos.Identity.Domain.Models;
+using MediatR;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace Pos.Identity.Infrastructure.Persistence.Services
+{
+    public class UserAuthenticationService : IUserAuthenticationService
+    {
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly IEmailService _emailService ;
+        private readonly ILogger<UserAuthenticationService> _logger;
+        public UserAuthenticationService(UserManager<ApplicationUser> userManager,
+        SignInManager<ApplicationUser> signInManager, IEmailService emailService, ILogger<UserAuthenticationService> logger)
+        {
+            _userManager = userManager;
+            _signInManager = signInManager;
+            _emailService = emailService;
+            _logger = logger;
+        }
+        
+
+        public async Task<Response<string>> RegisterAsync(string userName,string email, string password, string fullName)
+        {
+            _logger.LogInformation("Registration attempt for email: {Email}", email);
+            var existingUserByEmail = await _userManager.FindByEmailAsync(email);
+            if (existingUserByEmail != null)
+            {
+                throw new ApiException("Email is already registered");
+            }
+
+            var existingUserByUsername = await _userManager.FindByNameAsync(userName);
+            if (existingUserByUsername != null)
+            {
+                _logger.LogWarning("Registration failed — username already taken: {UserName}", userName);
+                throw new ApiException("Username is already taken");
+            }
+
+            var user = new ApplicationUser
+            {
+                UserName = userName,
+                Email = email,
+                FullName = fullName,
+                IsActive = true
+            };
+
+            var result = await _userManager.CreateAsync(user, password);
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                _logger.LogError(
+                "Registration failed for {Email}. Errors: {Errors}",
+                email,errors);
+                throw new ApiException($"Registration failed: {errors}");
+            }
+            _logger.LogInformation(
+           "User registered successfully. UserId: {UserId} Email: {Email}",
+           user.Id, email);
+
+            var roleResult = await _userManager.AddToRoleAsync(user, PlatformRoles.Admin);
+            if (!roleResult.Succeeded)
+            {
+                await _userManager.DeleteAsync(user);
+                var errors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
+                _logger.LogError(
+                "Assigning Role failed for {Email}. Errors: {Errors}",
+                email, errors);
+                throw new ApiException($"User created but role assignment failed: {errors}");
+            }
+
+            var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+            await _emailService.SendConfirmationEmailAsync(user.Email, user.Id, token);
+
+            return new Response<string>(user.Id, "Registration successful. Please check your email to confirm your account.");
+        }
+        public async Task<Response<LoginResult>> LoginAsync(string email, string password)
+        {
+            _logger.LogInformation(
+           "Login attempt for email: {Email}", email);
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null)
+            {
+                _logger.LogWarning(
+                "Login failed — user not found: {Email}", email);
+                throw new ApiException("Invalid email or password");
+            }
+            if (!user.IsActive)
+            {
+                _logger.LogWarning(
+                "Login failed — account deactivated. UserId: {UserId}", user.Id);
+                throw new ApiException("This account has been deactivated. Please contact support.");
+            }
+
+            if (!await _userManager.IsEmailConfirmedAsync(user))
+            {
+                _logger.LogWarning(
+                "Login failed — email not confirmed. UserId: {UserId}", user.Id);
+                throw new ApiException("Email is not confirmed. Please check your inbox.");
+            }
+
+            var result = await _signInManager.CheckPasswordSignInAsync(user, password, lockoutOnFailure: true);
+            if (!result.Succeeded)
+            {
+                if (result.IsLockedOut)
+                {
+                    _logger.LogWarning(
+                   "Login failed — account locked out. UserId: {UserId}", user.Id);
+                    throw new ApiException("Account is locked out due to multiple failed attempts. Please try again later.");
+                }
+                _logger.LogWarning(
+                "Login failed — invalid password. UserId: {UserId}", user.Id);
+                throw new ApiException("Invalid email or password");
+            }
+            _logger.LogInformation(
+            "Login successful. UserId: {UserId} Email: {Email}",
+            user.Id, email);
+            var roles = await _userManager.GetRolesAsync(user);
+
+            return new Response<LoginResult>(new LoginResult
+            {
+                UserId = user.Id,
+                Email = user.Email,
+                FullName = user.FullName,
+                Roles = roles
+            });
+        }
+        public async Task<Response<bool>> ConfirmEmailAsync(string userId, string token)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                throw new ApiException("User not found");
+            }
+
+            if (user.EmailConfirmed)
+            {
+                throw new ApiException("Email is already confirmed");
+            }
+
+            var decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token));
+            var result = await _userManager.ConfirmEmailAsync(user, decodedToken);
+
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                throw new ApiException($"Email confirmation failed: {errors}");
+            }
+
+            return new Response<bool>(true);
+        }
+
+        public async Task<bool> GetUserStatus(string userId)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                throw new ApiException("User not found");
+            }
+            return user.IsActive;
+        }
+
+        public async Task<Response<string>> ForgotPasswordAsync(string email)
+        {
+            _logger.LogInformation(
+            "Password reset requested for email: {Email}", email);
+
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null || !user.IsActive)
+            {
+                _logger.LogWarning(
+                "Password reset — user not found or inactive: {Email}", email);
+
+                return new Response<string>("If this email is registered you will receive a reset link.");
+            }
+
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            await _emailService.SendPasswordResetEmailAsync(user.Email, user.Id, token);
+
+            return new Response<string>(data:"Check your email for a password reset link.");
+        }
+        
+
+        public async Task<Response<string>> ResetPasswordAsync(string userId, string token, string newPassword)
+        {
+            _logger.LogInformation(
+           "Password reset attempt. UserId: {UserId}", userId);
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                throw new ApiException("Invalid request.");
+
+            var decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token));
+            var result = await _userManager.ResetPasswordAsync(user, decodedToken, newPassword);
+
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                _logger.LogWarning(
+                "Password reset failed. UserId: {UserId} Errors: {Errors}", userId, errors);
+                throw new ApiException($"Password reset failed: {errors}");
+            }
+            _logger.LogInformation(
+            "Password reset successful. UserId: {UserId}", userId);
+
+            return new Response<string>(data:"Password has been reset successfully.");
+        }
+
+        public async Task<Response<string>> DeactivateUserAsync(string userId)
+        {
+            _logger.LogInformation(
+            "Deactivation requested. UserId: {UserId}", userId);
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                throw new ApiException("User not found.");
+
+            if (!user.IsActive)
+                throw new ApiException("User is already deactivated.");
+
+            user.IsActive = false;
+            await _userManager.UpdateAsync(user);
+
+            _logger.LogWarning(
+            "User deactivated. UserId: {UserId}", userId);
+
+            return new Response<string>(data:"User has been deactivated.");
+        }
+
+        public async Task<Response<LoginResult>> SocialLoginAsync(string provider, string providerKey, string email, string fullName)
+        {
+            _logger.LogInformation(
+           "Social login attempt. Provider: {Provider} Email: {Email}",
+           provider, email);
+            var user = await _userManager.FindByLoginAsync(provider, providerKey);
+            if(user == null)
+            {
+                _logger.LogInformation(
+               "No existing social login found. Checking email: {Email}", email);
+                user = await _userManager.FindByEmailAsync(email);
+
+                if (user == null)
+                {
+                    _logger.LogInformation(
+                    "Creating new user via social login. Email: {Email}", email);
+                    user = new ApplicationUser
+                    {
+                        UserName = email,
+                        Email = email,
+                        FullName = fullName,
+                        EmailConfirmed = true,
+                        IsActive = true
+                    };
+
+                    var createResult = await _userManager.CreateAsync(user);
+                    if (!createResult.Succeeded)
+                    {
+                        var errors = string.Join(", ", createResult.Errors
+                            .Select(e => e.Description));
+                        throw new ApiException($"Failed to create user: {errors}");
+                    }
+                    await _userManager.AddToRoleAsync(user, PlatformRoles.Admin);
+                }
+                _logger.LogInformation(
+                    "Linking {Provider} to existing account. UserId: {UserId}",
+                    provider, user.Id);
+                await _userManager.AddLoginAsync(user, new UserLoginInfo(
+                    provider,
+                    providerKey,
+                    provider
+                    ));
+            }
+
+
+            if (!user.IsActive)
+                throw new ApiException("This account has been deactivated.");
+
+            _logger.LogInformation(
+           "Social login successful. UserId: {UserId} Provider: {Provider}",
+           user.Id, provider);
+
+            var roles = await _userManager.GetRolesAsync(user);
+
+            return new Response<LoginResult>(new LoginResult
+            {
+                UserId = user.Id,
+                Email = user.Email,
+                FullName = user.FullName,
+                Roles = roles
+            });
+        }
+    }
+}

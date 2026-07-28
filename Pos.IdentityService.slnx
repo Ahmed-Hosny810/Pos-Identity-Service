@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/Core/">
+    <Project Path="Pos.Identity.Application/Pos.Identity.Application.csproj" />
+    <Project Path="Pos.Identity.Domain/Pos.Identity.Domain.csproj" />
+  </Folder>
+  <Folder Name="/Infrastructure/">
+    <Project Path="Pos.Identity.Infrastructure.Persistence/Pos.Identity.Infrastructure.Persistence.csproj" />
+  </Folder>
+  <Folder Name="/WebApi/">
+    <Project Path="Pos.Auth.WebApi/Pos.Auth.WebApi.csproj" Id="c0bcca9b-fd3e-4448-b288-c8dfbfeee78c" />
+  </Folder>
+</Solution>
