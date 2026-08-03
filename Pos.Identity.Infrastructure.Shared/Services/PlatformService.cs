@@ -11,23 +11,23 @@ using System.Text;
 
 namespace Pos.Identity.Infrastructure.Shared.Services
 {
-    public class RoleService : IRoleService
+    public class PlatformService : IPlatformService
     {
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly ILogger<RoleService> _logger;
-        public RoleService(UserManager<ApplicationUser> userManager,ILogger<RoleService> logger)
+        private readonly ILogger<PlatformService> _logger;
+        public PlatformService(UserManager<ApplicationUser> userManager,ILogger<PlatformService> logger)
         {
             _userManager = userManager;
             _logger = logger; 
         }
-        public async Task<Response<string>> AssignAdminRoleAsync(string userId)
+        public async Task<Response<string>> AssignPlatformAdminRoleAsync(string userId)
         {
             return await AssignRoleAsync(userId, PlatformRoles.Admin);
         }
 
-        public async Task<Response<string>> AssignInstructorRoleAsync(string userId)
+        public async Task<Response<string>> AssignPlatformSuperAdminRoleAsync(string userId)
         {
-            return await AssignRoleAsync(userId, PlatformRoles.Admin);
+            return await AssignRoleAsync(userId, PlatformRoles.SuperAdmin);
         }
 
         private async Task<Response<string>> AssignRoleAsync(string userId, string toRole)

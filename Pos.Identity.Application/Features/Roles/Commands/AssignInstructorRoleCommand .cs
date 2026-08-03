@@ -15,9 +15,9 @@ namespace Pos.Identity.Pos.Identity.Application.Features.Roles.Commands
     public class AssignInstructorRoleCommandHandler
         : IRequestHandler<AssignInstructorRoleCommand, Response<string>>
     {
-        private readonly IRoleService _roleService;
+        private readonly IPlatformService _roleService;
 
-        public AssignInstructorRoleCommandHandler(IRoleService roleService)
+        public AssignInstructorRoleCommandHandler(IPlatformService roleService)
             => _roleService = roleService;
 
         public async Task<Response<string>> Handle(

@@ -1,7 +1,9 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Pos.Identity.Application.Interfaces.Clients;
 using Pos.Identity.Application.Interfaces.Services;
+using Pos.Identity.Infrastructure.Shared.Clients;
 using Pos.Identity.Infrastructure.Shared.Services;
 using Pos.Identity.Infrastructure.Shared.Settings;
 using SendGrid;
@@ -26,7 +28,13 @@ namespace Pos.Identity.Infrastructure.Shared
             services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
             services.AddScoped<IEmailService, EmailService>();
             services.AddScoped<IUserAuthenticationService, UserAuthenticationService>();
-            services.AddScoped<IRoleService, RoleService>();
+            services.AddScoped<IPlatformService, PlatformService>();
+
+            services.AddHttpClient<ITenantBillingClient, TenantBillingClient>(client =>
+            {
+                client.BaseAddress = new Uri(
+                    configuration["Services:TenantBilling:BaseUrl"]!);
+            });
 
             return services;
         }

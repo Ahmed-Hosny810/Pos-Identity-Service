@@ -1,7 +1,9 @@
 using Asp.Versioning;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Pos.Auth.WebApi.Services;
 using Pos.Identity.Application;
+using Pos.Identity.Application.Interfaces.Services;
 using Pos.Identity.Infrastructure.Persistence;
 using Pos.Identity.Infrastructure.Persistence.Context;
 using Pos.Identity.WebApi.Extensions;
@@ -49,6 +51,9 @@ namespace Pos.Auth.WebApi
 
             // Swagger (via extension)
             builder.Services.AddSwaggerExtension();
+
+            builder.Services.AddHttpContextAccessor();
+            builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
             var app = builder.Build();
             app.UseMiddleware<ErrorHandlerMiddleware>();
