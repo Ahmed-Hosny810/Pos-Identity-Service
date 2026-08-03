@@ -8,5 +8,6 @@ namespace Pos.Identity.Domain.Constants
     {
         public const string Platform = "Platform";
         public const string Tenant = "Tenant";
+        public const string PendingTenant = "PendingTenant";
     }
 }

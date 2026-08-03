@@ -5,9 +5,9 @@ using Microsoft.Extensions.Options;
 using SendGrid;
 using SendGrid.Helpers.Mail;
 using System.Text;
-using Pos.Identity.Infrastructure.Persistence.Settings;
+using Pos.Identity.Infrastructure.Shared.Settings;
 
-namespace Pos.Identity.Infrastructure.Persistence.Services
+namespace Pos.Identity.Infrastructure.Shared.Services
 {
     public class EmailService : IEmailService
     {

@@ -36,7 +36,7 @@ namespace Pos.Identity.Infrastructure.Persistence.Context.DbConfigurations
 
             builder.HasIndex(x => x.UserType);
 
-            builder.HasIndex(x => new { x.TenantId, x.Email });
+            builder.HasIndex(x => new { x.TenantId, x.NormalizedEmail });
         }
     }
 }

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Pos.Identity.Infrastructure.Persistence.Settings
+namespace Pos.Identity.Infrastructure.Shared.Settings
 {
     public class EmailSettings
     {

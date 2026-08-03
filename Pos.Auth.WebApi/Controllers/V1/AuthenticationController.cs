@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
+using Pos.Identity.Application.Common.Security;
 using Pos.Identity.Application.Exceptions;
 using Pos.Identity.Application.Features.Authentication.Commands.ConfirmEmail;
 using Pos.Identity.Application.Features.Authentication.Commands.DeactivateUser;
@@ -192,7 +193,7 @@ namespace Pos.Identity.WebApi.Controllers.V1
             identity.AddClaim(Claims.Email, data.Email, Destinations.AccessToken);
             identity.AddClaim(Claims.Name, data.Email, Destinations.AccessToken);
             identity.AddClaim(Claims.GivenName, data.FullName, Destinations.AccessToken);
-
+            identity.AddClaim(CustomClaimTypes.UserType, data.UserType, Destinations.AccessToken);
             foreach (var role in data.Roles)
                 identity.AddClaim(Claims.Role, role, Destinations.AccessToken);
 

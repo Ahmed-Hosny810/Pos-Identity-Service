@@ -9,7 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Pos.Identity.Infrastructure.Persistence.Services
+namespace Pos.Identity.Infrastructure.Shared.Services
 {
     public class RoleService : IRoleService
     {

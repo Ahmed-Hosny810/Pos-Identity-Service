@@ -34,4 +34,8 @@
     <ProjectReference Include="..\Pos.Identity.Infrastructure.Persistence\Pos.Identity.Infrastructure.Persistence.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Logs\" />
+  </ItemGroup>
+
 </Project>

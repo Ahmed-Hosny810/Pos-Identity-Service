@@ -6,9 +6,12 @@ namespace Pos.Identity.Application.Wrappers
 {
     public class LoginResult
     {
-        public string UserId { get; set; }
-        public string Email { get; set; }
-        public string FullName { get; set; }
-        public IList<string> Roles { get; set; }
+        public string UserId { get; set; }= null!;
+        public string Email { get; set; } = null!;
+        public string FullName { get; set; } = null!;
+        public Guid? TenantId { get; set; }
+
+        public string UserType { get; set; } = null!;
+        public IList<string> Roles { get; set; } = new List<string>();
     }
 }

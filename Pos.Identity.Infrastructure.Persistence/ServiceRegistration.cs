@@ -1,6 +1,4 @@
-﻿using Pos.Identity.Application.Interfaces.Services;
-using Pos.Identity.Infrastructure.Persistence.Services;
-using Microsoft.AspNetCore.Authentication;
+﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -11,7 +9,6 @@ using static OpenIddict.Abstractions.OpenIddictConstants;
 using Pos.Identity.Infrastructure.Persistence.Context;
 using Pos.Identity.Domain.Models;
 using Pos.Identity.Infrastructure.Persistence.Seeders;
-using Pos.Identity.Infrastructure.Persistence.Settings;
 using Pos.Identity.Domain.Constants;
 
 namespace Pos.Identity.Infrastructure.Persistence
@@ -42,17 +39,7 @@ namespace Pos.Identity.Infrastructure.Persistence
               .AddDefaultTokenProviders();
 
             services.AddHostedService<OpenIddictSeeder>();
-            services.AddSingleton<ISendGridClient>(sp =>
-            {
-                var settings = sp.GetRequiredService<IOptions<EmailSettings>>().Value;
-                return new SendGridClient(settings.SendGridApiKey);
-            });
-
-            services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
-            services.AddScoped<IEmailService, EmailService>();
-            services.AddScoped<IUserAuthenticationService, UserAuthenticationService>();
-            services.AddScoped<IRoleService, RoleService>();
-
+            
             return services;
         }
 

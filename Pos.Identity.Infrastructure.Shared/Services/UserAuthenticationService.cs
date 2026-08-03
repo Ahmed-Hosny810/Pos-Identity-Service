@@ -1,24 +1,21 @@
 ﻿using Pos.Identity.Application.Exceptions;
 using Pos.Identity.Application.Interfaces.Services;
 using Pos.Identity.Application.Wrappers;
-using Azure.Core;
 using Pos.Identity.Domain.Constants;
 using Pos.Identity.Domain.Models;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
 using System.Text;
 
-namespace Pos.Identity.Infrastructure.Persistence.Services
+namespace Pos.Identity.Infrastructure.Shared.Services
 {
     public class UserAuthenticationService : IUserAuthenticationService
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
-        private readonly IEmailService _emailService ;
+        private readonly IEmailService _emailService;
         private readonly ILogger<UserAuthenticationService> _logger;
         public UserAuthenticationService(UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager, IEmailService emailService, ILogger<UserAuthenticationService> logger)
@@ -36,7 +33,7 @@ namespace Pos.Identity.Infrastructure.Persistence.Services
             var existingUserByEmail = await _userManager.FindByEmailAsync(email);
             if (existingUserByEmail != null)
             {
-                throw new ApiException("Email is already registered");
+                throw new ApiException("Email is already registered. Please login.");
             }
 
             var existingUserByUsername = await _userManager.FindByNameAsync(userName);
@@ -51,8 +48,13 @@ namespace Pos.Identity.Infrastructure.Persistence.Services
                 UserName = userName,
                 Email = email,
                 FullName = fullName,
-                IsActive = true
+                UserType = UserTypes.PendingTenant,
+                TenantId = null,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
             };
+                
+            ValidateUserContext(user);
 
             var result = await _userManager.CreateAsync(user, password);
             if (!result.Succeeded)
@@ -66,17 +68,6 @@ namespace Pos.Identity.Infrastructure.Persistence.Services
             _logger.LogInformation(
            "User registered successfully. UserId: {UserId} Email: {Email}",
            user.Id, email);
-
-            var roleResult = await _userManager.AddToRoleAsync(user, PlatformRoles.Admin);
-            if (!roleResult.Succeeded)
-            {
-                await _userManager.DeleteAsync(user);
-                var errors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
-                _logger.LogError(
-                "Assigning Role failed for {Email}. Errors: {Errors}",
-                email, errors);
-                throw new ApiException($"User created but role assignment failed: {errors}");
-            }
 
             var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             await _emailService.SendConfirmationEmailAsync(user.Email, user.Id, token);
@@ -108,6 +99,8 @@ namespace Pos.Identity.Infrastructure.Persistence.Services
                 throw new ApiException("Email is not confirmed. Please check your inbox.");
             }
 
+            ValidateUserContext(user);
+
             var result = await _signInManager.CheckPasswordSignInAsync(user, password, lockoutOnFailure: true);
             if (!result.Succeeded)
             {
@@ -130,6 +123,8 @@ namespace Pos.Identity.Infrastructure.Persistence.Services
             {
                 UserId = user.Id,
                 Email = user.Email,
+                TenantId = user.TenantId,
+                UserType = user.UserType,
                 FullName = user.FullName,
                 Roles = roles
             });
@@ -186,7 +181,7 @@ namespace Pos.Identity.Infrastructure.Persistence.Services
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
             await _emailService.SendPasswordResetEmailAsync(user.Email, user.Id, token);
 
-            return new Response<string>(data:"Check your email for a password reset link.");
+            return new Response<string>(data: "If this email is registered you will receive a reset link.");
         }
         
 
@@ -228,7 +223,14 @@ namespace Pos.Identity.Infrastructure.Persistence.Services
                 throw new ApiException("User is already deactivated.");
 
             user.IsActive = false;
-            await _userManager.UpdateAsync(user);
+            user.UpdatedAt = DateTime.UtcNow;
+            var result = await _userManager.UpdateAsync(user);
+
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                throw new ApiException($"Failed to deactivate user: {errors}");
+            }
 
             _logger.LogWarning(
             "User deactivated. UserId: {UserId}", userId);
@@ -258,8 +260,13 @@ namespace Pos.Identity.Infrastructure.Persistence.Services
                         Email = email,
                         FullName = fullName,
                         EmailConfirmed = true,
-                        IsActive = true
+                        IsActive = true,
+                        UserType = UserTypes.PendingTenant,
+                        TenantId = null,
+                        CreatedAt = DateTime.UtcNow
                     };
+
+                    ValidateUserContext(user);
 
                     var createResult = await _userManager.CreateAsync(user);
                     if (!createResult.Succeeded)
@@ -268,7 +275,6 @@ namespace Pos.Identity.Infrastructure.Persistence.Services
                             .Select(e => e.Description));
                         throw new ApiException($"Failed to create user: {errors}");
                     }
-                    await _userManager.AddToRoleAsync(user, PlatformRoles.Admin);
                 }
                 _logger.LogInformation(
                     "Linking {Provider} to existing account. UserId: {UserId}",
@@ -280,10 +286,11 @@ namespace Pos.Identity.Infrastructure.Persistence.Services
                     ));
             }
 
-
             if (!user.IsActive)
+            {
                 throw new ApiException("This account has been deactivated.");
-
+            }
+                
             _logger.LogInformation(
            "Social login successful. UserId: {UserId} Provider: {Provider}",
            user.Id, provider);
@@ -293,10 +300,42 @@ namespace Pos.Identity.Infrastructure.Persistence.Services
             return new Response<LoginResult>(new LoginResult
             {
                 UserId = user.Id,
-                Email = user.Email,
+                Email = user.Email!,
                 FullName = user.FullName,
+                TenantId = user.TenantId,
+                UserType = user.UserType,
                 Roles = roles
             });
+        }
+
+        private void ValidateUserContext(ApplicationUser user)
+        {
+            if (string.IsNullOrWhiteSpace(user.UserType))
+            {
+                _logger.LogWarning(
+                    "User context validation failed — missing UserType. UserId: {UserId}",
+                    user.Id);
+
+                throw new ApiException("User account is not configured correctly.");
+            }
+
+            if (user.UserType == UserTypes.Tenant && !user.TenantId.HasValue)
+            {
+                _logger.LogWarning(
+                    "User context validation failed — tenant user without TenantId. UserId: {UserId}",
+                    user.Id);
+
+                throw new ApiException("User account is not linked to a tenant.");
+            }
+
+            if (user.UserType == UserTypes.PendingTenant && user.TenantId.HasValue)
+            {
+                _logger.LogWarning(
+                    "User context validation failed — pending tenant user has TenantId. UserId: {UserId}",
+                    user.Id);
+
+                throw new ApiException("User account is in an invalid onboarding state.");
+            }
         }
     }
 }
