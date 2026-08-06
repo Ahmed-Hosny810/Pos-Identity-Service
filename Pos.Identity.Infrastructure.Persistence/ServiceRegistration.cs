@@ -1,15 +1,16 @@
 ﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Pos.Identity.Domain.Constants;
+using Pos.Identity.Domain.Models;
+using Pos.Identity.Infrastructure.Persistence.Context;
+using Pos.Identity.Infrastructure.Persistence.Seeders;
 using SendGrid;
 using static OpenIddict.Abstractions.OpenIddictConstants;
-using Pos.Identity.Infrastructure.Persistence.Context;
-using Pos.Identity.Domain.Models;
-using Pos.Identity.Infrastructure.Persistence.Seeders;
-using Pos.Identity.Domain.Constants;
 
 namespace Pos.Identity.Infrastructure.Persistence
 {
@@ -43,36 +44,106 @@ namespace Pos.Identity.Infrastructure.Persistence
             return services;
         }
 
+        public static IServiceCollection AddAuthenticationServices(this IServiceCollection services,IConfiguration configuration)
+        {
+            services
+                .AddAuthentication(options =>
+                {
+                    options.DefaultAuthenticateScheme =
+                        AuthenticationSchemes.ApplicationCookie;
+
+                    options.DefaultSignInScheme =
+                        AuthenticationSchemes.ApplicationCookie;
+
+                    options.DefaultChallengeScheme =
+                        AuthenticationSchemes.ApplicationCookie;
+                })
+                .AddCookie(
+                    AuthenticationSchemes.ApplicationCookie,
+                    options =>
+                    {
+                        options.LoginPath = "/account/login";
+                        options.LogoutPath = "/account/logout";
+
+                        options.Cookie.Name =
+                            "__Host-pos-identity";
+
+                        options.Cookie.HttpOnly = true;
+
+                        options.Cookie.SecurePolicy =
+                            CookieSecurePolicy.Always;
+
+                        options.Cookie.SameSite =
+                            SameSiteMode.Lax;
+
+                        options.SlidingExpiration = true;
+
+                        options.ExpireTimeSpan =
+                            TimeSpan.FromHours(8);
+                    })
+                .AddCookie(
+                    AuthenticationSchemes.ExternalCookie,
+                    options =>
+                    {
+                        options.Cookie.Name =
+                            "__Host-pos-external";
+
+                        options.Cookie.HttpOnly = true;
+
+                        options.Cookie.SecurePolicy =
+                            CookieSecurePolicy.Always;
+
+                        options.Cookie.SameSite =
+                            SameSiteMode.Lax;
+
+                        options.ExpireTimeSpan =
+                            TimeSpan.FromMinutes(10);
+                    });
+
+            return services;
+        }
+
         public static IServiceCollection AddOpenIddictServer(this IServiceCollection services, IConfiguration configuration)
         {
             services.AddOpenIddict()
-         .AddCore(options =>
-         {
-             options.UseEntityFrameworkCore().UseDbContext<ApplicationDbContext>();
-         })
-         .AddServer(options =>
-         {
-             options.SetTokenEndpointUris("/connect/token")
-                        .SetAuthorizationEndpointUris("/connect/authorize");
+        .AddCore(options =>
+        {
+            options.UseEntityFrameworkCore()
+                .UseDbContext<ApplicationDbContext>();
+        })
+        .AddServer(options =>
+        {
+            options.SetAuthorizationEndpointUris(
+                "/connect/authorize");
 
-             options.AllowPasswordFlow();
-             options.AllowRefreshTokenFlow();
-             options.AllowAuthorizationCodeFlow();
+            options.SetTokenEndpointUris(
+                "/connect/token");
 
-             options.RegisterScopes(
-                 Scopes.OpenId,
-                 Scopes.Email,
-                 Scopes.Profile,
-                 Scopes.Roles,
-                 "api");
+            options.SetEndSessionEndpointUris(
+                "/connect/logout");
 
-             options.AddDevelopmentEncryptionCertificate()
-                    .AddDevelopmentSigningCertificate();
+            options.AllowAuthorizationCodeFlow();
+            options.AllowRefreshTokenFlow();
 
-             options.UseAspNetCore()
-                    .EnableTokenEndpointPassthrough()
-                    .EnableAuthorizationEndpointPassthrough();
-         });
+            // Authorization Code requests must use PKCE.
+            options.RequireProofKeyForCodeExchange();
+
+            options.RegisterScopes(
+                Scopes.OpenId,
+                Scopes.Profile,
+                Scopes.Email,
+                Scopes.Roles,
+                Scopes.OfflineAccess);
+
+            // Development only.
+            options.AddDevelopmentEncryptionCertificate();
+            options.AddDevelopmentSigningCertificate();
+
+            options.UseAspNetCore()
+                .EnableAuthorizationEndpointPassthrough()
+                .EnableTokenEndpointPassthrough()
+                .EnableEndSessionEndpointPassthrough();
+        });
 
             return services;
         }
@@ -81,11 +152,14 @@ namespace Pos.Identity.Infrastructure.Persistence
         public static IServiceCollection AddSocialAuthentication(this IServiceCollection services,IConfiguration configuration)
         {
             services.AddAuthentication()
-                .AddGoogle(options =>
+                .AddGoogle(AuthenticationSchemes.Google, options =>
                 {
                     // pulled from appsettings or secrets
                     options.ClientId = configuration["Authentication:Google:ClientId"];
                     options.ClientSecret = configuration["Authentication:Google:ClientSecret"];
+
+                    options.SignInScheme =
+                    AuthenticationSchemes.ExternalCookie;
 
                     // These are the user fields we want Google to return
                     options.Scope.Add("email");
@@ -96,7 +170,7 @@ namespace Pos.Identity.Infrastructure.Persistence
                     options.ClaimActions.MapJsonKey(Claims.Email, "email");
                     options.ClaimActions.MapJsonKey(Claims.Name, "name");
                 })
-                .AddFacebook(options =>
+                .AddFacebook(AuthenticationSchemes.Facebook, options =>
                 {
                     options.AppId = configuration["Authentication:Facebook:AppId"];
                     options.AppSecret = configuration["Authentication:Facebook:AppSecret"];

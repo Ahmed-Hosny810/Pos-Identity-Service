@@ -65,7 +65,12 @@ namespace Pos.Auth.WebApi
             }
 
             app.UseHttpsRedirection();
+            app.UseStaticFiles();
 
+            app.UseRouting();
+
+            app.UseCors();
+            app.UseAuthentication();
             app.UseAuthorization();
 
             //app process is alive.
@@ -81,6 +86,7 @@ namespace Pos.Auth.WebApi
             });
 
             app.MapControllers();
+            // app.MapRazorPages();
 
             app.Run();
         }

@@ -14,8 +14,7 @@ using System.Text;
 
 namespace Pos.Identity.Application.Features.TenantOnboarding.Commands
 {
-    public class CreateTenantOnboardingCommand
-    : IRequest<Response<CreateTenantResult>>
+    public class CreateTenantOnboardingCommand:IRequest<Response<CreateTenantResult>>
     {
         public string NameAr { get; set; } = null!;
 

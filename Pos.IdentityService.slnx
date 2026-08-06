@@ -5,6 +5,7 @@
   </Folder>
   <Folder Name="/Infrastructure/">
     <Project Path="Pos.Identity.Infrastructure.Persistence/Pos.Identity.Infrastructure.Persistence.csproj" />
+    <Project Path="Pos.Identity.Infrastructure.Shared/Pos.Identity.Infrastructure.Shared.csproj" Id="e3aa1839-9dbf-4ed6-bdd9-97decaaa435d" />
   </Folder>
   <Folder Name="/WebApi/">
     <Project Path="Pos.Auth.WebApi/Pos.Auth.WebApi.csproj" Id="c0bcca9b-fd3e-4448-b288-c8dfbfeee78c" />
