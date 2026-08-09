@@ -1,13 +1,13 @@
-﻿using System;
+﻿using Microsoft.AspNetCore.Identity;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Pos.Identity.Domain.Constants
+namespace Pos.Identity.Infrastructure.Persistence.Constants
 {
     public static class AuthenticationSchemes
     {
-        public const string ApplicationCookie =
-            "ApplicationCookie";
+        public static readonly string ApplicationCookie = IdentityConstants.ApplicationScheme;
 
         public const string ExternalCookie =
             "ExternalCookie";

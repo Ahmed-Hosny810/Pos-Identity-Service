@@ -22,12 +22,13 @@ using Pos.Identity.Application.Features.Authentication.Querys.GetById;
 using Pos.Identity.Application.Features.Authentication.Querys.GetUserStatus;
 using Pos.Identity.Application.Wrappers;
 using Pos.Identity.Domain.Constants;
+using Pos.Identity.Infrastructure.Persistence.Constants;
 using System.Security.Claims;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace Pos.Identity.WebApi.Controllers.V1
 {
-    [Route("api/{version:apiVersion}/[controller]")]
+    [Route("api/v{version:apiVersion}/[controller]")]
     [ApiController]
     [ApiVersion("1.0")]
     public class AuthenticationController(IMediator mediator) : ControllerBase
@@ -167,7 +168,7 @@ namespace Pos.Identity.WebApi.Controllers.V1
 
                 tokenPrincipal.SetScopes(result.Principal.GetScopes());
 
-                return SignIn(result.Principal,
+                return SignIn(tokenPrincipal,
                     OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
             }
 

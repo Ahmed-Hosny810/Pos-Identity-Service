@@ -6,6 +6,7 @@ using SendGrid;
 using SendGrid.Helpers.Mail;
 using System.Text;
 using Pos.Identity.Infrastructure.Shared.Settings;
+using Pos.Identity.Application.Exceptions;
 
 namespace Pos.Identity.Infrastructure.Shared.Services
 {
@@ -117,7 +118,7 @@ namespace Pos.Identity.Infrastructure.Shared.Services
                     "Email sending failed for {Email}. Status: {StatusCode}. Error: {Error}",
                     toEmail, response.StatusCode, errorBody);
 
-                throw new Exception($"Email sending failed with status {response.StatusCode}: {errorBody}");
+                throw new ApiException($"Email sending failed with status {response.StatusCode}: {errorBody}");
             }
 
             _logger.LogInformation("Email successfully sent to {Email}", toEmail);

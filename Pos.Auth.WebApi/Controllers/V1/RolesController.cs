@@ -8,7 +8,7 @@ using Pos.Identity.Pos.Identity.Application.Features.Roles.Commands;
 
 namespace Pos.Identity.WebApi.Controllers.V1
 {
-    [Route("api/{version:apiVersion}/[controller]")]
+    [Route("api/v{version:apiVersion}/[controller]")]
     [ApiController]
     [Authorize(Roles = PlatformRoles.Admin)]
     [ApiVersion("1.0")]

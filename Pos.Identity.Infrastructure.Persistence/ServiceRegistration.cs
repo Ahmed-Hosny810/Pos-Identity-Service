@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Pos.Identity.Domain.Constants;
 using Pos.Identity.Domain.Models;
+using Pos.Identity.Infrastructure.Persistence.Constants;
 using Pos.Identity.Infrastructure.Persistence.Context;
 using Pos.Identity.Infrastructure.Persistence.Seeders;
 using SendGrid;
@@ -40,7 +41,7 @@ namespace Pos.Identity.Infrastructure.Persistence
               .AddDefaultTokenProviders();
 
             services.AddHostedService<OpenIddictSeeder>();
-            
+
             return services;
         }
 
@@ -134,6 +135,8 @@ namespace Pos.Identity.Infrastructure.Persistence
                 Scopes.Email,
                 Scopes.Roles,
                 Scopes.OfflineAccess);
+
+            options.DisableAccessTokenEncryption();
 
             // Development only.
             options.AddDevelopmentEncryptionCertificate();

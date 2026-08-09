@@ -26,5 +26,26 @@ namespace Pos.Auth.WebApi.Services
                     ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
             }
         }
+
+        public string? AccessToken
+        {
+            get
+            {
+                var authorizationHeader =
+                    _httpContextAccessor.HttpContext?.Request.Headers.Authorization.ToString();
+
+                if (string.IsNullOrWhiteSpace(authorizationHeader))
+                    return null;
+
+                const string bearerPrefix = "Bearer ";
+
+                if (!authorizationHeader.StartsWith(
+                        bearerPrefix,
+                        StringComparison.OrdinalIgnoreCase))
+                    return null;
+
+                return authorizationHeader[bearerPrefix.Length..].Trim();
+            }
+        }
     }
 }

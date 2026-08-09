@@ -9,7 +9,7 @@ using Pos.Identity.Application.Wrappers;
 
 namespace Pos.Auth.WebApi.Controllers.V1
 {
-    [Route("api/{version:apiVersion}/tenant-onboarding")]
+    [Route("api/v{version:apiVersion}/tenant-onboarding")]
     [ApiController]
     [ApiVersion("1.0")]
     [Authorize]

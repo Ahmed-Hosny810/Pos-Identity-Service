@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Pos.Identity.Application.Interfaces.Clients;
 using Pos.Identity.Application.Interfaces.Services;
 using Pos.Identity.Infrastructure.Shared.Clients;
+using Pos.Identity.Infrastructure.Shared.Seeders;
 using Pos.Identity.Infrastructure.Shared.Services;
 using Pos.Identity.Infrastructure.Shared.Settings;
 using SendGrid;
@@ -29,6 +30,8 @@ namespace Pos.Identity.Infrastructure.Shared
             services.AddScoped<IEmailService, EmailService>();
             services.AddScoped<IUserAuthenticationService, UserAuthenticationService>();
             services.AddScoped<IPlatformService, PlatformService>();
+            //seeder
+            services.AddScoped<IdentityRoleSeeder>();
 
             services.AddHttpClient<ITenantBillingClient, TenantBillingClient>(client =>
             {

@@ -6,6 +6,8 @@ using Pos.Identity.Application;
 using Pos.Identity.Application.Interfaces.Services;
 using Pos.Identity.Infrastructure.Persistence;
 using Pos.Identity.Infrastructure.Persistence.Context;
+using Pos.Identity.Infrastructure.Shared;
+using Pos.Identity.Infrastructure.Shared.Seeders;
 using Pos.Identity.WebApi.Extensions;
 using Pos.Identity.WebApi.Middlewares;
 using Serilog;
@@ -45,6 +47,7 @@ namespace Pos.Auth.WebApi
             builder.Services.AddApiVersioningExtension();
             // AddPersistenceServices
             builder.Services.AddPersistenceServices(builder.Configuration);
+            builder.Services.AddSharedInfrastructureServices(builder.Configuration);
             builder.Services.AddApplicationLayer();
             builder.Services.AddOpenIddictServer(builder.Configuration);
             builder.Services.AddSocialAuthentication(builder.Configuration);
@@ -56,8 +59,8 @@ namespace Pos.Auth.WebApi
             builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
             var app = builder.Build();
+
             app.UseMiddleware<ErrorHandlerMiddleware>();
-            await ServiceRegistration.SeedRolesAsync(app.Services);
 
             if (app.Environment.IsDevelopment())
             {
@@ -65,7 +68,6 @@ namespace Pos.Auth.WebApi
             }
 
             app.UseHttpsRedirection();
-            app.UseStaticFiles();
 
             app.UseRouting();
 
