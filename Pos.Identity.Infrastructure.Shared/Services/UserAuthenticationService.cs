@@ -17,13 +17,17 @@ namespace Pos.Identity.Infrastructure.Shared.Services
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly IEmailService _emailService;
         private readonly ILogger<UserAuthenticationService> _logger;
+        private readonly ICurrentUserService _currentUserService;
+
         public UserAuthenticationService(UserManager<ApplicationUser> userManager,
-        SignInManager<ApplicationUser> signInManager, IEmailService emailService, ILogger<UserAuthenticationService> logger)
+        SignInManager<ApplicationUser> signInManager, IEmailService emailService, 
+        ILogger<UserAuthenticationService> logger,ICurrentUserService currentUserService)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _emailService = emailService;
             _logger = logger;
+            _currentUserService = currentUserService;
         }
         
 
@@ -114,6 +118,36 @@ namespace Pos.Identity.Infrastructure.Shared.Services
                 "Login failed — invalid password. UserId: {UserId}", user.Id);
                 throw new ApiException("Invalid email or password");
             }
+            var now = DateTime.UtcNow;
+
+            if (user.MustChangePassword)
+            {
+                if (user.TemporaryPasswordExpiresAt.HasValue &&
+                    user.TemporaryPasswordExpiresAt.Value < now)
+                {
+                    throw new ApiException("Temporary password has expired. Please contact your tenant admin for a new invitation.");
+                }
+            }
+
+            // Check for concurrent logins
+            var inactivityLimit = TimeSpan.FromMinutes(20);
+            if (user.IsLoggedIn &&user.LastAccessedAt.HasValue && now - user.LastAccessedAt.Value <= inactivityLimit)
+            {
+                throw new ApiException("This account is already logged in on another device.");
+            }
+
+            user.IsLoggedIn = true;
+            user.LastAccessedAt = now;
+            user.UpdatedAt = now;
+
+            var updateResult = await _userManager.UpdateAsync(user);
+
+            if (!updateResult.Succeeded)
+            {
+                var errors = string.Join(", ", updateResult.Errors.Select(e => e.Description));
+                throw new ApiException($"Failed to update login state: {errors}");
+            }
+
             _logger.LogInformation(
             "Login successful. UserId: {UserId} Email: {Email}",
             user.Id, email);
@@ -124,8 +158,11 @@ namespace Pos.Identity.Infrastructure.Shared.Services
                 UserId = user.Id,
                 Email = user.Email,
                 TenantId = user.TenantId,
+                IsLoggedIn = user.IsLoggedIn,
+                LastAccessedAt= user.LastAccessedAt.Value,
                 UserType = user.UserType,
                 FullName = user.FullName,
+                MustChangePassword = user.MustChangePassword,
                 Roles = roles
             });
         }
@@ -308,6 +345,37 @@ namespace Pos.Identity.Infrastructure.Shared.Services
             });
         }
 
+        public async Task LogoutAsync()
+        {
+            var userId = _currentUserService.UserId;
+            _logger.LogInformation("Logout attempt for userId: {UserId}", userId);
+
+            var user = await _userManager.FindByIdAsync(userId);
+
+            if (user == null)
+            {
+                _logger.LogWarning(
+                "Logout failed — user not found: {UserId}", userId);
+                throw new ApiException("Invalid userId");
+            }
+
+            user.IsLoggedIn = false;
+            user.LastAccessedAt = null;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            var updateResult = await _userManager.UpdateAsync(user);
+
+            if (!updateResult.Succeeded)
+            {
+                var errors = string.Join(", ", updateResult.Errors.Select(e => e.Description));
+                throw new ApiException($"Failed to update user state: {errors}");
+            }
+            _logger.LogInformation(
+           "Logout successful. UserId: {UserId}",user.Id);
+
+        }
+
+        //helper
         private void ValidateUserContext(ApplicationUser user)
         {
             if (string.IsNullOrWhiteSpace(user.UserType))
@@ -337,5 +405,6 @@ namespace Pos.Identity.Infrastructure.Shared.Services
                 throw new ApiException("User account is in an invalid onboarding state.");
             }
         }
+
     }
 }

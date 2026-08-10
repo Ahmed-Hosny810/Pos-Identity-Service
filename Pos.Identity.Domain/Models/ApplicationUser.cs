@@ -19,6 +19,14 @@ namespace Pos.Identity.Domain.Models
 
         public DateTime? UpdatedAt { get; set; }
 
+        public bool MustChangePassword { get; set; }
+
+        public DateTime? TemporaryPasswordExpiresAt { get; set; }
+
+        public bool IsLoggedIn { get; set; }
+
+        public DateTime? LastAccessedAt { get; set; }
+
         public bool IsTenantUser => UserType == UserTypes.Tenant;
 
         public bool IsPlatformUser => UserType == UserTypes.Platform;

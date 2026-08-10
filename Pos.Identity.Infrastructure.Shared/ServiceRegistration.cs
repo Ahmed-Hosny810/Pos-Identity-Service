@@ -29,7 +29,8 @@ namespace Pos.Identity.Infrastructure.Shared
             services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
             services.AddScoped<IEmailService, EmailService>();
             services.AddScoped<IUserAuthenticationService, UserAuthenticationService>();
-            services.AddScoped<IPlatformService, PlatformService>();
+            services.AddScoped<IPlatformAdminService, PlatformAdminService>();
+            services.AddScoped<ITenantUserService, TenantUserService>();
             //seeder
             services.AddScoped<IdentityRoleSeeder>();
 

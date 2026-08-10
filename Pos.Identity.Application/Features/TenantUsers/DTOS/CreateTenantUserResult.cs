@@ -12,4 +12,4 @@ namespace Pos.Identity.Application.Features.TenantUsers.DTOS
         public string Role { get; set; } = null!;
     }
 }
-}
+

@@ -8,6 +8,7 @@ namespace Pos.Identity.Application.Interfaces.Services
     public interface IUserAuthenticationService
     {
         Task<Response<LoginResult>> LoginAsync(string email, string password);
+        Task LogoutAsync();
         Task<Response<string>> RegisterAsync(string userName,string email, string password, string fullName);
         Task<Response<LoginResult>> SocialLoginAsync(string provider,string providerKey,string email,string fullName);
         Task<Response<bool>> ConfirmEmailAsync(string userId, string token);

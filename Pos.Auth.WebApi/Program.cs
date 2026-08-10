@@ -1,9 +1,12 @@
 using Asp.Versioning;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Pos.Auth.WebApi.Middlewares;
+using Pos.Auth.WebApi.Policies;
 using Pos.Auth.WebApi.Services;
 using Pos.Identity.Application;
 using Pos.Identity.Application.Interfaces.Services;
+using Pos.Identity.Domain.Constants;
 using Pos.Identity.Infrastructure.Persistence;
 using Pos.Identity.Infrastructure.Persistence.Context;
 using Pos.Identity.Infrastructure.Shared;
@@ -11,6 +14,7 @@ using Pos.Identity.Infrastructure.Shared.Seeders;
 using Pos.Identity.WebApi.Extensions;
 using Pos.Identity.WebApi.Middlewares;
 using Serilog;
+using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace Pos.Auth.WebApi
 {
@@ -52,6 +56,9 @@ namespace Pos.Auth.WebApi
             builder.Services.AddOpenIddictServer(builder.Configuration);
             builder.Services.AddSocialAuthentication(builder.Configuration);
 
+            // Add app Authorization Policies
+            builder.Services.AddAuthorizationPolicies();
+
             // Swagger (via extension)
             builder.Services.AddSwaggerExtension();
 
@@ -73,6 +80,7 @@ namespace Pos.Auth.WebApi
 
             app.UseCors();
             app.UseAuthentication();
+            app.UseMiddleware<UserActivityMiddleware>();
             app.UseAuthorization();
 
             //app process is alive.

@@ -1,106 +1,92 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
-using Pos.Identity.Application.Dtos;
 using Pos.Identity.Application.Exceptions;
-using Pos.Identity.Application.Features.TenantUsers.Commands.CreateCommand;
-using Pos.Identity.Application.Features.TenantUsers.DTOS;
-using Pos.Identity.Application.Interfaces.Clients;
+using Pos.Identity.Application.Features.PlatformAdmins.Commands;
+using Pos.Identity.Application.Features.PlatformAdmins.DTOS;
 using Pos.Identity.Application.Interfaces.Services;
+using Pos.Identity.Application.Wrappers;
 using Pos.Identity.Domain.Constants;
 using Pos.Identity.Domain.Models;
+using System;
+using System.Collections.Generic;
 using System.Security.Cryptography;
+using System.Text;
 
 namespace Pos.Identity.Infrastructure.Shared.Services
 {
-    public class TenantUserService : ITenantUserService
+    public class PlatformAdminService : IPlatformAdminService
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
-        private readonly ILogger<TenantUserService> _logger;
+        private readonly ILogger<PlatformAdminService> _logger;
         private readonly ICurrentUserService _currentUserService;
-        private readonly ITenantBillingClient _tenantBillingClient;
         private readonly IEmailService _emailService;
 
-        public TenantUserService(
+        public PlatformAdminService(
             UserManager<ApplicationUser> userManager,
             RoleManager<IdentityRole> roleManager,
-            ILogger<TenantUserService> logger,
-            ICurrentUserService currentUserService, 
-            ITenantBillingClient tenantBillingClient,
+            ILogger<PlatformAdminService> logger,
+            ICurrentUserService currentUserService,
             IEmailService emailService)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _logger = logger;
             _currentUserService = currentUserService;
-            _tenantBillingClient = tenantBillingClient;
             _emailService = emailService;
         }
 
-        public async Task<CreateTenantUserResult> CreateTenantUserAsync(CreateTenantUserCommand request,CancellationToken cancellationToken)
+        public async Task<CreatePlatformAdminResult> CreatePlatformAdminAsync(
+            CreatePlatformAdminCommand request,
+            CancellationToken cancellationToken)
         {
-            var tenantAdminId = _currentUserService.UserId;
+            var currentUserId = _currentUserService.UserId;
 
-            if (string.IsNullOrWhiteSpace(tenantAdminId))
+            if (string.IsNullOrWhiteSpace(currentUserId))
                 throw new ApiException("User is not authenticated.");
 
-            var tenantAdmin = await _userManager.FindByIdAsync(tenantAdminId);
+            var currentUser = await _userManager.FindByIdAsync(currentUserId);
 
-            if (tenantAdmin == null)
+            if (currentUser == null)
             {
                 _logger.LogWarning(
-                    "Tenant admin with ID {TenantAdminId} not found",
-                    tenantAdminId);
+                    "Platform admin creation failed — current user not found. UserId: {UserId}",
+                    currentUserId);
 
-                throw new ApiException("Tenant admin not found.");
+                throw new ApiException("Current user not found.");
             }
 
-            if (!tenantAdmin.IsActive)
+            if (!currentUser.IsActive)
                 throw new ApiException("This account has been deactivated.");
 
-            if (tenantAdmin.UserType != UserTypes.Tenant)
-                throw new ApiException("Only tenant users can create tenant staff users.");
+            if (currentUser.UserType != UserTypes.Platform)
+                throw new ApiException("Only platform users can create platform admins.");
 
-            if (!tenantAdmin.TenantId.HasValue || tenantAdmin.TenantId.Value == Guid.Empty)
-            {
-                _logger.LogWarning(
-                    "Tenant admin with ID {TenantAdminId} does not have a valid tenant ID",
-                    tenantAdminId);
+            if (currentUser.TenantId.HasValue)
+                throw new ApiException("Platform users cannot be linked to a tenant.");
 
-                throw new ApiException("Tenant admin does not have a valid tenant ID.");
-            }
+            var isSuperAdmin = await _userManager.IsInRoleAsync(
+                currentUser,
+                PlatformRoles.SuperAdmin);
 
-            var tenantId = tenantAdmin.TenantId.Value;
+            var isPlatformAdmin = await _userManager.IsInRoleAsync(
+                currentUser,
+                PlatformRoles.Admin);
 
-            var isTenantOwner = await _userManager.IsInRoleAsync(
-                tenantAdmin,
-                TenantRoles.TenantOwner);
-
-            var isTenantAdmin = await _userManager.IsInRoleAsync(
-                tenantAdmin,
-                TenantRoles.Admin);
-
-            if (!isTenantOwner && !isTenantAdmin)
-            {
-                _logger.LogWarning(
-                    "User with ID {TenantAdminId} does not have privileges to add tenant users",
-                    tenantAdminId);
-
-                throw new ApiException("User does not have the privileges to add a tenant user.");
-            }
+            if (!isSuperAdmin && !isPlatformAdmin)
+                throw new ApiException("User does not have privileges to create platform admins.");
 
             var allowedRoles = new[]
             {
-                 TenantRoles.Admin,
-                 TenantRoles.Cashier,
-                 TenantRoles.InventoryStaff
+                PlatformRoles.SuperAdmin,
+                PlatformRoles.Admin
             };
 
             if (!allowedRoles.Contains(request.Role))
-                throw new ApiException("Invalid tenant user role.");
+                throw new ApiException("Invalid platform admin role.");
 
-            if (!isTenantOwner && request.Role == TenantRoles.Admin)
-                throw new ApiException("Only tenant owner can create tenant admins.");
+            if (!isSuperAdmin && request.Role == PlatformRoles.SuperAdmin)
+                throw new ApiException("Only SuperAdmin can create another SuperAdmin.");
 
             if (!await _roleManager.RoleExistsAsync(request.Role))
                 throw new ApiException("Role does not exist.");
@@ -110,7 +96,7 @@ namespace Pos.Identity.Infrastructure.Shared.Services
             if (existingUserByEmail != null)
             {
                 _logger.LogWarning(
-                    "User with email {Email} already exists",
+                    "Platform admin creation failed — email already exists. Email: {Email}",
                     request.Email);
 
                 throw new ApiException("Email is already registered.");
@@ -121,7 +107,7 @@ namespace Pos.Identity.Infrastructure.Shared.Services
             if (existingUserByUsername != null)
             {
                 _logger.LogWarning(
-                    "Registration failed — username already taken: {UserName}",
+                    "Platform admin creation failed — username already taken. UserName: {UserName}",
                     request.UserName);
 
                 throw new ApiException("Username is already taken.");
@@ -135,63 +121,57 @@ namespace Pos.Identity.Infrastructure.Shared.Services
                 UserName = request.UserName,
                 Email = request.Email,
                 FullName = request.FullName,
-                TenantId = tenantId,
-                UserType = UserTypes.Tenant,
+
+                UserType = UserTypes.Platform,
+                TenantId = null,
+
                 IsActive = true,
                 EmailConfirmed = true,
+
                 MustChangePassword = true,
                 TemporaryPasswordExpiresAt = temporaryPasswordExpiresAt,
+
                 CreatedAt = DateTime.UtcNow
             };
 
-            var isCashier = request.Role == TenantRoles.Cashier;
-            var cashierUsageIncreased = false;
             var userCreated = false;
 
             try
             {
-                if (isCashier)
-                {
-                    await _tenantBillingClient.IncreaseCashierUsageAsync(
-                        new IncreaseCashierUsageRequest
-                        {
-                            TenantId = tenantId
-                        },
-                        cancellationToken);
-
-                    cashierUsageIncreased = true;
-                }
-
                 _logger.LogInformation(
-                    "Creating tenant user for TenantId {TenantId} with Email {Email} and Role {Role}",
-                    tenantId,
+                    "Creating platform admin. Email: {Email}, Role: {Role}, CreatedBy: {CreatedBy}",
                     request.Email,
-                    request.Role);
+                    request.Role,
+                    currentUser.Id);
 
-                var createResult = await _userManager.CreateAsync(user, temporaryPassword);
+                var createResult = await _userManager.CreateAsync(
+                    user,
+                    temporaryPassword);
 
                 if (!createResult.Succeeded)
                 {
                     var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
 
                     _logger.LogError(
-                        "Tenant user creation failed for {Email}. Errors: {Errors}",
+                        "Platform admin creation failed for {Email}. Errors: {Errors}",
                         request.Email,
                         errors);
 
-                    throw new ApiException($"Tenant user creation failed: {errors}");
+                    throw new ApiException($"Platform admin creation failed: {errors}");
                 }
 
                 userCreated = true;
 
-                var roleResult = await _userManager.AddToRoleAsync(user, request.Role);
+                var roleResult = await _userManager.AddToRoleAsync(
+                    user,
+                    request.Role);
 
                 if (!roleResult.Succeeded)
                 {
                     var errors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
 
                     _logger.LogError(
-                        "Adding role {Role} failed for {Email}. Errors: {Errors}",
+                        "Adding platform role {Role} failed for {Email}. Errors: {Errors}",
                         request.Role,
                         request.Email,
                         errors);
@@ -199,22 +179,21 @@ namespace Pos.Identity.Infrastructure.Shared.Services
                     throw new ApiException($"Adding role failed: {errors}");
                 }
 
-                await _emailService.SendTenantUserInvitationEmailAsync(
+                await _emailService.SendPlatformAdminInvitationEmailAsync(
                     user.Email!,
                     user.FullName,
                     temporaryPassword,
-                    temporaryPasswordExpiresAt);
+                    temporaryPasswordExpiresAt,
+                    cancellationToken);
 
                 _logger.LogInformation(
-                    "Tenant user created successfully. UserId: {UserId}, TenantId: {TenantId}, Role: {Role}",
+                    "Platform admin created successfully. UserId: {UserId}, Email: {Email}, Role: {Role}",
                     user.Id,
-                    tenantId,
+                    user.Email,
                     request.Role);
 
-                return new CreateTenantUserResult
+                return new CreatePlatformAdminResult
                 {
-                    UserId = user.Id,
-                    TenantId = tenantId,
                     Email = user.Email!,
                     Role = request.Role
                 };
@@ -230,29 +209,9 @@ namespace Pos.Identity.Infrastructure.Shared.Services
                         var errors = string.Join(", ", deleteResult.Errors.Select(e => e.Description));
 
                         _logger.LogError(
-                            "Failed to delete tenant user after creation failure. UserId: {UserId}, Errors: {Errors}",
+                            "Failed to delete platform admin after creation failure. UserId: {UserId}, Errors: {Errors}",
                             user.Id,
                             errors);
-                    }
-                }
-
-                if (cashierUsageIncreased)
-                {
-                    try
-                    {
-                        await _tenantBillingClient.DecreaseCashierUsageAsync(
-                            new DecreaseCashierUsageRequest
-                            {
-                                TenantId = tenantId
-                            },
-                            cancellationToken);
-                    }
-                    catch (Exception rollbackException)
-                    {
-                        _logger.LogError(
-                            rollbackException,
-                            "Failed to rollback cashier usage for TenantId {TenantId}",
-                            tenantId);
                     }
                 }
 

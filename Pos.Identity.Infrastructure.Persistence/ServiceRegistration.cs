@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Pos.Identity.Domain.Constants;
 using Pos.Identity.Domain.Models;
 using Pos.Identity.Infrastructure.Persistence.Constants;
@@ -66,8 +65,8 @@ namespace Pos.Identity.Infrastructure.Persistence
                         options.LoginPath = "/account/login";
                         options.LogoutPath = "/account/logout";
 
-                        options.Cookie.Name =
-                            "__Host-pos-identity";
+                        options.Cookie.Name = "__Host-pos-identity";
+                        options.Cookie.Path = "/";
 
                         options.Cookie.HttpOnly = true;
 
@@ -86,8 +85,8 @@ namespace Pos.Identity.Infrastructure.Persistence
                     AuthenticationSchemes.ExternalCookie,
                     options =>
                     {
-                        options.Cookie.Name =
-                            "__Host-pos-external";
+                        options.Cookie.Name = "__Host-pos-external";
+                        options.Cookie.Path = "/";
 
                         options.Cookie.HttpOnly = true;
 
@@ -138,6 +137,9 @@ namespace Pos.Identity.Infrastructure.Persistence
 
             options.DisableAccessTokenEncryption();
 
+            options.SetAccessTokenLifetime(TimeSpan.FromMinutes(5));
+            options.SetRefreshTokenLifetime(TimeSpan.FromDays(7));
+
             // Development only.
             options.AddDevelopmentEncryptionCertificate();
             options.AddDevelopmentSigningCertificate();
@@ -147,6 +149,18 @@ namespace Pos.Identity.Infrastructure.Persistence
                 .EnableTokenEndpointPassthrough()
                 .EnableEndSessionEndpointPassthrough();
         });
+
+            return services;
+        }
+
+        public static IServiceCollection AddOpenIddictValidation(this IServiceCollection services)
+        {
+            services.AddOpenIddict()
+                .AddValidation(options =>
+                {
+                    options.UseLocalServer();
+                    options.UseAspNetCore();
+                });
 
             return services;
         }
@@ -177,7 +191,7 @@ namespace Pos.Identity.Infrastructure.Persistence
                 {
                     options.AppId = configuration["Authentication:Facebook:AppId"];
                     options.AppSecret = configuration["Authentication:Facebook:AppSecret"];
-
+                    options.SignInScheme = AuthenticationSchemes.ExternalCookie;
                     options.Fields.Add("email");
                     options.Fields.Add("name");
                 });

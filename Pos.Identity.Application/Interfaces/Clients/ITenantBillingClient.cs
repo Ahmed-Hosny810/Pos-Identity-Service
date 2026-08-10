@@ -10,5 +10,13 @@ namespace Pos.Identity.Application.Interfaces.Clients
         Task<CreateTenantResult> CreateTenantAsync(
             CreateTenantRequest request,
             CancellationToken cancellationToken);
+
+        Task<IncreaseCashierUsageResult> IncreaseCashierUsageAsync(
+            IncreaseCashierUsageRequest request,
+            CancellationToken cancellationToken);
+
+        Task<DecreaseCashierUsageResult> DecreaseCashierUsageAsync
+            (DecreaseCashierUsageRequest request,
+            CancellationToken cancellationToken);
     }
 }

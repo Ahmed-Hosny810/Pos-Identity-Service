@@ -12,7 +12,7 @@ namespace Pos.Auth.WebApi.Controllers.V1
     [Route("api/v{version:apiVersion}/tenant-onboarding")]
     [ApiController]
     [ApiVersion("1.0")]
-    [Authorize]
+    [Authorize(Policy = "PendingTenantOnly")]
     public class TenantOnboardingController : ControllerBase
     {
         private readonly IMediator _mediator;

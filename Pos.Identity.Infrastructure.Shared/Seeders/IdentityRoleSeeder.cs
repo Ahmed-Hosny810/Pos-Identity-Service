@@ -28,7 +28,6 @@ namespace Pos.Identity.Infrastructure.Shared.Seeders
                 PlatformRoles.Admin,
 
                 TenantRoles.TenantOwner,
-                TenantRoles.Manager,
                 TenantRoles.Cashier,
                 TenantRoles.InventoryStaff
             };

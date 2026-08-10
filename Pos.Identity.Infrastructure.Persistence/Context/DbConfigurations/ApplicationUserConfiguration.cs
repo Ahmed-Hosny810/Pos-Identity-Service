@@ -32,6 +32,20 @@ namespace Pos.Identity.Infrastructure.Persistence.Context.DbConfigurations
             builder.Property(x => x.UpdatedAt)
                 .IsRequired(false);
 
+            builder.Property(x => x.MustChangePassword)
+                .HasDefaultValue(false)
+                .IsRequired();
+
+            builder.Property(x => x.TemporaryPasswordExpiresAt)
+                .IsRequired(false);
+
+            builder.Property(x => x.IsLoggedIn)
+                .HasDefaultValue(false)
+                .IsRequired();
+
+            builder.Property(x => x.LastAccessedAt)
+                .IsRequired(false);
+
             builder.HasIndex(x => x.TenantId);
 
             builder.HasIndex(x => x.UserType);

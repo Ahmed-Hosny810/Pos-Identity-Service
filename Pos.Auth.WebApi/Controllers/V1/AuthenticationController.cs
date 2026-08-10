@@ -14,6 +14,7 @@ using Pos.Identity.Application.Features.Authentication.Commands.ConfirmEmail;
 using Pos.Identity.Application.Features.Authentication.Commands.DeactivateUser;
 using Pos.Identity.Application.Features.Authentication.Commands.ForgotPassword;
 using Pos.Identity.Application.Features.Authentication.Commands.Login;
+using Pos.Identity.Application.Features.Authentication.Commands.Logout;
 using Pos.Identity.Application.Features.Authentication.Commands.RegisterCommand;
 using Pos.Identity.Application.Features.Authentication.Commands.ResetPassword;
 using Pos.Identity.Application.Features.Authentication.Commands.SocialLogin;
@@ -47,6 +48,13 @@ namespace Pos.Identity.WebApi.Controllers.V1
         {
             var result = await _mediator.Send(command);
             return Ok(result);
+        }
+        [Authorize(Policy = "BearerOnly")]
+        [HttpPost("Logout")]
+        public async Task<ActionResult<Response<string>>> Logout()
+        {
+             await _mediator.Send(new LogoutCommand());
+            return Ok(new { message = "Logout successful." });
         }
 
         [HttpPost("forgot-password")]
@@ -92,7 +100,7 @@ namespace Pos.Identity.WebApi.Controllers.V1
                 AuthenticationSchemes.ApplicationCookie,
                 new ClaimsPrincipal(cookieIdentity));
 
-            return Ok(new { returnUrl = command.ReturnUrl, message = "Login successful." });
+            return Ok( new { returnUrl = command.ReturnUrl, message = "Login successful." });
         }
 
         [HttpGet("~/connect/authorize")]

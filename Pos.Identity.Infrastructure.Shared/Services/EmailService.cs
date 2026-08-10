@@ -55,7 +55,17 @@ namespace Pos.Identity.Infrastructure.Shared.Services
                 </body>
                 </html>";
 
-            await SendEmailAsync(toEmail, subject, body, cancellationToken);
+            var plainTextContent = $@"
+            Thank you for registering.
+            
+            Please confirm your email address using this link:
+            {confirmationLink}
+            
+            This link will expire in {expiryHours} hours.
+            
+            If you did not create an account, please ignore this email.";
+
+            await SendEmailAsync(toEmail, subject, plainTextContent, body, cancellationToken);
         }
 
         public async Task SendPasswordResetEmailAsync(
@@ -87,12 +97,168 @@ namespace Pos.Identity.Infrastructure.Shared.Services
                 </body>
                 </html>";
 
-            await SendEmailAsync(toEmail, subject, body, cancellationToken);
+            var plainTextContent = $@"
+            You requested a password reset.
+            
+            Use this link to set a new password:
+            {resetLink}
+            
+            This link will expire in {expiryHours} hour(s).
+            
+            If you did not request a password reset, please ignore this email.";
+
+            await SendEmailAsync(
+                toEmail,
+                subject,
+                plainTextContent,
+                body,
+                cancellationToken);
         }
 
+        public async Task SendTenantUserInvitationEmailAsync(string email, string fullName, string temporaryPassword, DateTime temporaryPasswordExpiresAt, CancellationToken cancellationToken = default)
+        {
+            var subject = "You have been invited to Vendora POS";
+
+            var expiresAt = temporaryPasswordExpiresAt.ToString("yyyy-MM-dd HH:mm 'UTC'");
+
+            var htmlContent = $@"
+             <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #222;'>
+                 <h2 style='color: #111;'>Welcome to Vendora POS</h2>
+
+                 <p>Hello {fullName},</p>
+
+                 <p>
+                     You have been invited to join your company workspace on 
+                     <strong>Vendora POS</strong>.
+                 </p>
+
+                 <p>
+                     Use the temporary password below to login:
+                 </p>
+
+                 <div style='background: #f4f4f4; padding: 16px; border-radius: 8px; margin: 20px 0;'>
+                     <p style='margin: 0; font-size: 14px; color: #555;'>Temporary Password</p>
+                     <p style='margin: 8px 0 0; font-size: 22px; font-weight: bold; letter-spacing: 1px;'>
+                         {temporaryPassword}
+                     </p>
+                 </div>
+
+                 <p>
+                     This temporary password will expire on:
+                     <strong>{expiresAt}</strong>
+                 </p>
+
+                 <p>
+                     After logging in, you will be asked to change your password before using the system.
+                 </p>
+
+                 <p style='margin-top: 32px; color: #666; font-size: 13px;'>
+                     If you were not expecting this invitation, please ignore this email.
+                 </p>
+             </div>";
+
+            var plainTextContent = $@"
+            Hello {fullName},
+            
+            You have been invited to join your company workspace on Vendora POS.
+            
+            Temporary password:
+            {temporaryPassword}
+            
+            This temporary password expires on: {expiresAt}
+            
+            After logging in, you will be asked to change your password.
+            
+            If you were not expecting this invitation, please ignore this email.";
+
+
+            await SendEmailAsync(
+                email,
+                subject,
+                plainTextContent,
+                htmlContent,
+                cancellationToken);
+        }
+
+
+        public async Task SendPlatformAdminInvitationEmailAsync(
+    string email,
+    string fullName,
+    string temporaryPassword,
+    DateTime temporaryPasswordExpiresAt,
+    CancellationToken cancellationToken = default)
+        {
+            _logger.LogInformation(
+                "Sending platform admin invitation email requested for Email: {Email}",
+                email);
+
+            var subject = "You have been invited as a Vendora Platform Admin";
+
+            var expiresAt = temporaryPasswordExpiresAt.ToString("yyyy-MM-dd HH:mm 'UTC'");
+
+            var htmlContent = $@"
+             <html>
+             <body style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #222;'>
+                 <h2 style='color: #111;'>Welcome to Vendora Admin Portal</h2>
+
+                 <p>Hello {fullName},</p>
+
+                 <p>
+                     You have been invited to join the 
+                     <strong>Vendora Platform Admin Portal</strong>.
+                 </p>
+
+                 <p>
+                     Use the temporary password below to login:
+                 </p>
+
+                 <div style='background: #f4f4f4; padding: 16px; border-radius: 8px; margin: 20px 0;'>
+                     <p style='margin: 0; font-size: 14px; color: #555;'>Temporary Password</p>
+                     <p style='margin: 8px 0 0; font-size: 22px; font-weight: bold; letter-spacing: 1px;'>
+                         {temporaryPassword}
+                     </p>
+                 </div>
+
+                 <p>
+                     This temporary password will expire on:
+                     <strong>{expiresAt}</strong>
+                 </p>
+
+                 <p>
+                     After logging in, you will be asked to change your password before using the system.
+                 </p>
+
+                 <p style='margin-top: 32px; color: #666; font-size: 13px;'>
+                     If you were not expecting this invitation, please ignore this email.
+                 </p>
+             </body>
+             </html>";
+
+            var plainTextContent = $@"
+             Hello {fullName},
+             
+             You have been invited to join the Vendora Platform Admin Portal.
+             
+             Temporary password:
+             {temporaryPassword}
+             
+             This temporary password expires on: {expiresAt}
+             
+             After logging in, you will be asked to change your password.
+             
+             If you were not expecting this invitation, please ignore this email.";
+
+            await SendEmailAsync(
+                email,
+                subject,
+                plainTextContent,
+                htmlContent,
+                cancellationToken);
+        }
         public async Task SendEmailAsync(
             string toEmail,
             string subject,
+            string painTextContent,
             string body,
             CancellationToken cancellationToken = default)
         {
@@ -103,7 +269,7 @@ namespace Pos.Identity.Infrastructure.Shared.Services
                 from,
                 to,
                 subject,
-                plainTextContent: null,
+                plainTextContent: painTextContent,
                 htmlContent: body
             );
 
