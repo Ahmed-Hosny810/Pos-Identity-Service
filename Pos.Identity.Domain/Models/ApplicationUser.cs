@@ -18,7 +18,7 @@ namespace Pos.Identity.Domain.Models
         public DateTime CreatedAt { get; set; }
 
         public DateTime? UpdatedAt { get; set; }
-
+        
         public bool MustChangePassword { get; set; }
 
         public DateTime? TemporaryPasswordExpiresAt { get; set; }

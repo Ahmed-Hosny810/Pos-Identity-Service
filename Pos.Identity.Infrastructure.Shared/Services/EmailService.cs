@@ -181,12 +181,8 @@ namespace Pos.Identity.Infrastructure.Shared.Services
         }
 
 
-        public async Task SendPlatformAdminInvitationEmailAsync(
-    string email,
-    string fullName,
-    string temporaryPassword,
-    DateTime temporaryPasswordExpiresAt,
-    CancellationToken cancellationToken = default)
+        public async Task SendPlatformAdminInvitationEmailAsync( string email,string fullName,string temporaryPassword,DateTime temporaryPasswordExpiresAt,
+            CancellationToken cancellationToken = default)
         {
             _logger.LogInformation(
                 "Sending platform admin invitation email requested for Email: {Email}",
@@ -255,6 +251,79 @@ namespace Pos.Identity.Infrastructure.Shared.Services
                 htmlContent,
                 cancellationToken);
         }
+        public async Task ResendUserInvitationEmailAsync(string email, string fullName, string temporaryPassword, DateTime temporaryPasswordExpiresAt, string portalName, CancellationToken cancellationToken = default)
+        {
+            _logger.LogInformation(
+            "Resending user invitation email requested for Email: {Email}, Portal: {PortalName}",
+            email,
+            portalName);
+
+            var subject = $"Your {portalName} invitation has been resent";
+
+            var expiresAt = temporaryPasswordExpiresAt.ToString("yyyy-MM-dd HH:mm 'UTC'");
+
+            var htmlContent = $@"
+             <html>
+             <body style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #222;'>
+                 <h2 style='color: #111;'>Your invitation has been resent</h2>
+
+                 <p>Hello {fullName},</p>
+
+                 <p>
+                     Your invitation to access 
+                     <strong>{portalName}</strong> has been resent.
+                 </p>
+
+                 <p>
+                     Please use the new temporary password below to login:
+                 </p>
+
+                 <div style='background: #f4f4f4; padding: 16px; border-radius: 8px; margin: 20px 0;'>
+                     <p style='margin: 0; font-size: 14px; color: #555;'>Temporary Password</p>
+                     <p style='margin: 8px 0 0; font-size: 22px; font-weight: bold; letter-spacing: 1px;'>
+                         {temporaryPassword}
+                     </p>
+                 </div>
+
+                 <p>
+                     This temporary password will expire on:
+                     <strong>{expiresAt}</strong>
+                 </p>
+
+                 <p>
+                     After logging in, you will be asked to change your password before using the system.
+                 </p>
+
+                 <p style='margin-top: 32px; color: #666; font-size: 13px;'>
+                     If you were not expecting this invitation, please ignore this email.
+                 </p>
+             </body>
+             </html>";
+
+            var plainTextContent = $@"
+            Hello {fullName},
+            
+            Your invitation to access {portalName} has been resent.
+            
+            Please use the new temporary password below to login:
+            
+            Temporary password:
+            {temporaryPassword}
+            
+            This temporary password expires on: {expiresAt}
+            
+            After logging in, you will be asked to change your password before using the system.
+            
+            If you were not expecting this invitation, please ignore this email.";
+
+            await SendEmailAsync(
+                email,
+                subject,
+                plainTextContent,
+                htmlContent,
+                cancellationToken);
+        }
+
         public async Task SendEmailAsync(
             string toEmail,
             string subject,

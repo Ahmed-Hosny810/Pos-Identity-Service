@@ -10,6 +10,7 @@ using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
 using Pos.Identity.Application.Common.Security;
 using Pos.Identity.Application.Exceptions;
+using Pos.Identity.Application.Features.Authentication.Commands.ChangePassword;
 using Pos.Identity.Application.Features.Authentication.Commands.ConfirmEmail;
 using Pos.Identity.Application.Features.Authentication.Commands.DeactivateUser;
 using Pos.Identity.Application.Features.Authentication.Commands.ForgotPassword;
@@ -63,6 +64,10 @@ namespace Pos.Identity.WebApi.Controllers.V1
 
         [HttpPost("reset-password")]
         public async Task<ActionResult<Response<string>>> ResetPassword([FromQuery] ResetPasswordCommand command)
+            => Ok(await _mediator.Send(command));
+
+        [HttpPost("change-temp-password")]
+        public async Task<ActionResult<Response<string>>> ChangeTempPassword([FromBody] ChangeTempPasswordCommand command)
             => Ok(await _mediator.Send(command));
 
         [HttpPost("deactivate/{userId}")]

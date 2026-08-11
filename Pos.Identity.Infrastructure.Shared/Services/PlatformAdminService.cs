@@ -42,51 +42,20 @@ namespace Pos.Identity.Infrastructure.Shared.Services
         {
             var currentUserId = _currentUserService.UserId;
 
-            if (string.IsNullOrWhiteSpace(currentUserId))
-                throw new ApiException("User is not authenticated.");
+            var validation = await ValidateCurrentPlatformUserAsync(
+                currentUserId,
+                request.Role);
 
-            var currentUser = await _userManager.FindByIdAsync(currentUserId);
-
-            if (currentUser == null)
-            {
-                _logger.LogWarning(
-                    "Platform admin creation failed — current user not found. UserId: {UserId}",
-                    currentUserId);
-
-                throw new ApiException("Current user not found.");
-            }
-
-            if (!currentUser.IsActive)
-                throw new ApiException("This account has been deactivated.");
-
-            if (currentUser.UserType != UserTypes.Platform)
-                throw new ApiException("Only platform users can create platform admins.");
-
-            if (currentUser.TenantId.HasValue)
-                throw new ApiException("Platform users cannot be linked to a tenant.");
-
-            var isSuperAdmin = await _userManager.IsInRoleAsync(
-                currentUser,
-                PlatformRoles.SuperAdmin);
-
-            var isPlatformAdmin = await _userManager.IsInRoleAsync(
-                currentUser,
-                PlatformRoles.Admin);
-
-            if (!isSuperAdmin && !isPlatformAdmin)
-                throw new ApiException("User does not have privileges to create platform admins.");
+            var currentUser = validation.User;
 
             var allowedRoles = new[]
             {
-                PlatformRoles.SuperAdmin,
-                PlatformRoles.Admin
+             PlatformRoles.SuperAdmin,
+             PlatformRoles.Admin
             };
 
             if (!allowedRoles.Contains(request.Role))
                 throw new ApiException("Invalid platform admin role.");
-
-            if (!isSuperAdmin && request.Role == PlatformRoles.SuperAdmin)
-                throw new ApiException("Only SuperAdmin can create another SuperAdmin.");
 
             if (!await _roleManager.RoleExistsAsync(request.Role))
                 throw new ApiException("Role does not exist.");
@@ -218,7 +187,62 @@ namespace Pos.Identity.Infrastructure.Shared.Services
                 throw;
             }
         }
+        private class PlatformUserValidationResult
+        {
+            public ApplicationUser User { get; set; } = null!;
 
+            public bool IsSuperAdmin { get; set; }
+
+            public bool IsPlatformAdmin { get; set; }
+        }
+
+        //Helpers
+        private async Task<PlatformUserValidationResult> ValidateCurrentPlatformUserAsync(string? currentUserId,string requestedRole)
+        {
+            if (string.IsNullOrWhiteSpace(currentUserId))
+                throw new ApiException("User is not authenticated.");
+
+            var currentUser = await _userManager.FindByIdAsync(currentUserId);
+
+            if (currentUser == null)
+            {
+                _logger.LogWarning(
+                    "Platform admin creation failed — current user not found. UserId: {UserId}",
+                    currentUserId);
+
+                throw new ApiException("Current user not found.");
+            }
+
+            if (!currentUser.IsActive)
+                throw new ApiException("This account has been deactivated.");
+
+            if (currentUser.UserType != UserTypes.Platform)
+                throw new ApiException("Only platform users can create platform admins.");
+
+            if (currentUser.TenantId.HasValue)
+                throw new ApiException("Platform users cannot be linked to a tenant.");
+
+            var isSuperAdmin = await _userManager.IsInRoleAsync(
+                currentUser,
+                PlatformRoles.SuperAdmin);
+
+            var isPlatformAdmin = await _userManager.IsInRoleAsync(
+                currentUser,
+                PlatformRoles.Admin);
+
+            if (!isSuperAdmin && !isPlatformAdmin)
+                throw new ApiException("User does not have privileges to create platform admins.");
+
+            if (!isSuperAdmin && requestedRole == PlatformRoles.SuperAdmin)
+                throw new ApiException("Only SuperAdmin can create another SuperAdmin.");
+
+            return new PlatformUserValidationResult
+            {
+                User = currentUser,
+                IsSuperAdmin = isSuperAdmin,
+                IsPlatformAdmin = isPlatformAdmin
+            };
+        }
         private static string GenerateTemporaryPassword()
         {
             const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -244,6 +268,6 @@ namespace Pos.Identity.Infrastructure.Shared.Services
                 .OrderBy(_ => RandomNumberGenerator.GetInt32(int.MaxValue))
                 .ToArray());
         }
-
+       
     }
 }

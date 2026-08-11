@@ -268,7 +268,7 @@ namespace Pos.Identity.Infrastructure.Shared.Services
             const string special = "!@$?_-";
             const string all = upper + lower + digits + special;
 
-            // ✅ Call the method directly — no delegate assignment
+            
             var chars = new List<char>
             {
                 upper  [RandomNumberGenerator.GetInt32(upper.Length)],
@@ -280,7 +280,7 @@ namespace Pos.Identity.Infrastructure.Shared.Services
             while (chars.Count < 12)
                 chars.Add(all[RandomNumberGenerator.GetInt32(all.Length)]);
 
-            // ✅ Shuffle using the same secure generator
+            
             return new string(chars
                 .OrderBy(_ => RandomNumberGenerator.GetInt32(int.MaxValue))
                 .ToArray());

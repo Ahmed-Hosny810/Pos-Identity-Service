@@ -85,6 +85,39 @@ namespace Pos.Auth.WebApi.Policies
                     });
                 });
 
+                options.AddPolicy("CanResendInvitations", policy =>
+                {
+                    policy.AuthenticationSchemes.Add(
+                        OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
+
+                    policy.RequireAuthenticatedUser();
+
+                    policy.RequireAssertion(context =>
+                    {
+                        var userType = context.User
+                            .FindFirst(CustomClaimTypes.UserType)?.Value;
+
+                        var roles = context.User
+                            .FindAll(Claims.Role)
+                            .Select(x => x.Value)
+                            .ToList();
+
+                        var isPlatformUser = userType == UserTypes.Platform &&
+                                             (
+                                                 roles.Contains(PlatformRoles.SuperAdmin) ||
+                                                 roles.Contains(PlatformRoles.Admin)
+                                             );
+
+                        var isTenantUser = userType == UserTypes.Tenant &&
+                                           (
+                                               roles.Contains(TenantRoles.TenantOwner) ||
+                                               roles.Contains(TenantRoles.Admin)
+                                           );
+
+                        return isPlatformUser || isTenantUser;
+                    });
+                });
+
             });
 
             return services;

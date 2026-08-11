@@ -15,6 +15,7 @@ namespace Pos.Identity.Application.Interfaces.Services
         Task<bool> GetUserStatus(string userId);
         Task<Response<string>> ForgotPasswordAsync(string email);
         Task<Response<string>> ResetPasswordAsync(string userId, string token, string newPassword);
+        Task<Response<string>> ChangeTemporaryPasswordAsync(string currentPassword,string newPassword);
         Task<Response<string>> DeactivateUserAsync(string userId);
     }
 }

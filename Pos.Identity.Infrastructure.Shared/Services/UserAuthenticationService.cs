@@ -221,7 +221,6 @@ namespace Pos.Identity.Infrastructure.Shared.Services
             return new Response<string>(data: "If this email is registered you will receive a reset link.");
         }
         
-
         public async Task<Response<string>> ResetPasswordAsync(string userId, string token, string newPassword)
         {
             _logger.LogInformation(
@@ -241,6 +240,7 @@ namespace Pos.Identity.Infrastructure.Shared.Services
                 "Password reset failed. UserId: {UserId} Errors: {Errors}", userId, errors);
                 throw new ApiException($"Password reset failed: {errors}");
             }
+
             _logger.LogInformation(
             "Password reset successful. UserId: {UserId}", userId);
 
@@ -373,6 +373,75 @@ namespace Pos.Identity.Infrastructure.Shared.Services
             _logger.LogInformation(
            "Logout successful. UserId: {UserId}",user.Id);
 
+        }
+
+        public async Task<Response<string>> ChangeTemporaryPasswordAsync(string currentPassword,string newPassword)
+        {
+            var userId = _currentUserService.UserId;
+
+            if (string.IsNullOrWhiteSpace(userId))
+                throw new ApiException("User is not authenticated.");
+
+            _logger.LogInformation(
+                "Temporary password change attempt. UserId: {UserId}",
+                userId);
+
+            var user = await _userManager.FindByIdAsync(userId);
+
+            if (user == null)
+                throw new ApiException("User not found.");
+
+            if (!user.IsActive)
+                throw new ApiException("This account has been deactivated.");
+
+            if (!user.MustChangePassword)
+                throw new ApiException("Password change is not required for this account.");
+
+            var now = DateTime.UtcNow;
+
+            if (!user.TemporaryPasswordExpiresAt.HasValue ||
+                user.TemporaryPasswordExpiresAt.Value < now)
+            {
+                throw new ApiException(
+                    "Temporary password has expired. Please contact your admin for a new invitation.");
+            }
+
+            var result = await _userManager.ChangePasswordAsync(
+                user,
+                currentPassword,
+                newPassword);
+
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+
+                _logger.LogWarning(
+                    "Temporary password change failed. UserId: {UserId}. Errors: {Errors}",
+                    user.Id,
+                    errors);
+
+                throw new ApiException($"Password change failed: {errors}");
+            }
+
+            user.MustChangePassword = false;
+            user.TemporaryPasswordExpiresAt = null;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            var updateResult = await _userManager.UpdateAsync(user);
+
+            if (!updateResult.Succeeded)
+            {
+                var errors = string.Join(", ", updateResult.Errors.Select(e => e.Description));
+
+                throw new ApiException($"Failed to update user password state: {errors}");
+            }
+
+            _logger.LogInformation(
+                "Temporary password changed successfully. UserId: {UserId}",
+                user.Id);
+
+            return new Response<string>(
+                data: "Password has been changed successfully.");
         }
 
         //helper
